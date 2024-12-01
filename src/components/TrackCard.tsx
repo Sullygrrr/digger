@@ -264,10 +264,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
           onClick={() => setShowDetails(false)}
         >
           <div 
-            className="absolute inset-x-0 bottom-0 bg-dark-100 rounded-t-3xl animate-slide-up max-h-[85vh] overflow-y-auto momentum-scroll"
+            className="fixed inset-x-0 bottom-0 bg-dark-100 rounded-t-3xl max-h-[85vh] overflow-y-auto momentum-scroll pb-safe"
             onClick={e => e.stopPropagation()}
           >
-            <div className="relative p-6 pb-safe">
+            <div className="relative p-6">
               <button
                 onClick={() => setShowDetails(false)}
                 className="absolute top-4 right-4 p-2 rounded-full hover:bg-dark-200 transition-colors"
@@ -285,7 +285,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
               )}
 
               {Object.entries(track.platforms || {}).length > 0 && (
-                <div className="space-y-3 pb-safe">
+                <div className="space-y-3 mb-safe">
                   <h3 className="text-lg font-semibold text-white">Écouter sur</h3>
                   <div className="grid grid-cols-2 gap-3">
                     {Object.entries(track.platforms).map(([platform, url], index) => (
