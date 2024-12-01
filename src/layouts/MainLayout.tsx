@@ -3,6 +3,7 @@ import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Discover } from '../pages/Discover';
 import { Profile } from '../pages/Profile';
 import { Compass, User } from 'lucide-react';
+import { TouchFeedback } from '../components/TouchFeedback';
 
 export const MainLayout = () => {
   const location = useLocation();
@@ -10,39 +11,39 @@ export const MainLayout = () => {
 
   return (
     <div className="fixed inset-0 bg-dark text-white flex flex-col">
-      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full overflow-hidden">
+      <div className="flex-1 relative">
         <Routes>
           <Route path="/" element={<Discover />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
 
-      <nav className="bg-dark-100/55 backdrop-blur-lg border-t border-gray-800/30">
+      <nav className="bg-dark-100/95 backdrop-blur-lg border-t border-gray-800/30 safe-area-bottom">
         <div className="max-w-md mx-auto">
-          <div className="flex justify-center gap-16 py-1.5">
-            <button
+          <div className="flex justify-center gap-16 py-2">
+            <TouchFeedback
               onClick={() => navigate('/')}
-              className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl ${
                 location.pathname === '/' 
                   ? 'text-white bg-gradient-to-r from-accent-purple to-accent-blue'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-gray-400'
               }`}
             >
-              <Compass className="w-4 h-4" />
-              <span className="text-[10px]">Découvrir</span>
-            </button>
+              <Compass className="w-5 h-5" />
+              <span className="text-xs">Découvrir</span>
+            </TouchFeedback>
 
-            <button
+            <TouchFeedback
               onClick={() => navigate('/profile')}
-              className={`flex flex-col items-center gap-0.5 px-4 py-1 rounded-lg transition-colors ${
+              className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl ${
                 location.pathname === '/profile'
                   ? 'text-white bg-gradient-to-r from-accent-purple to-accent-blue'
-                  : 'text-gray-400 hover:text-white'
+                  : 'text-gray-400'
               }`}
             >
-              <User className="w-4 h-4" />
-              <span className="text-[10px]">Moi</span>
-            </button>
+              <User className="w-5 h-5" />
+              <span className="text-xs">Moi</span>
+            </TouchFeedback>
           </div>
         </div>
       </nav>
