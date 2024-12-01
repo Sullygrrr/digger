@@ -1,11 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Track } from '../types/music';
-import { Music, ThumbsUp, ThumbsDown, ExternalLink, ChevronUp, Heart } from 'lucide-react';
+import { Music, ThumbsUp, ThumbsDown, ExternalLink, Plus, X, Heart } from 'lucide-react';
 import { useUsername } from '../hooks/useUsername';
 import { useLikes } from '../hooks/useLikes';
 
 const SWIPE_THRESHOLD = 80;
-const SWIPE_VELOCITY_THRESHOLD = 0.5;
 const ROTATION_FACTOR = 0.08;
 
 const platformStyles = {
@@ -23,18 +22,13 @@ interface TrackCardProps {
 
 export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard = false }) => {
   const [startX, setStartX] = useState(0);
-  const [startY, setStartY] = useState(0);
   const [currentX, setCurrentX] = useState(0);
-  const [currentY, setCurrentY] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-  const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const [isPlaying, setIsPlaying] = useState(!isFirstCard);
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
-  const [detailsProgress, setDetailsProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const detailsRef = useRef<HTMLDivElement>(null);
   const username = useUsername(track.userId);
   const { likes, isLiked, toggleLike } = useLikes(track.id, track.likes, track.likedBy);
 
@@ -49,7 +43,6 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
       if (audioRef.current) {
         audioRef.current.currentTime = 0;
         audioRef.current.play();
-        setShowDetails(true);
       }
     };
 
@@ -63,22 +56,6 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
       }
     };
   }, []);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (showDetails && detailsRef.current && !detailsRef.current.contains(event.target as Node)) {
-        setShowDetails(false);
-      }
-    };
-
-    if (showDetails) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showDetails]);
 
   const togglePlay = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -100,11 +77,8 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     setStartX(clientX);
-    setStartY(clientY);
     setIsDragging(true);
-    setDragDirection(null);
     setSwipeDirection(null);
   };
 
@@ -112,40 +86,15 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
     if (!isDragging) return;
 
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const diffX = clientX - startX;
-    const diffY = clientY - startY;
+    setCurrentX(diffX);
 
-    if (!dragDirection) {
-      const absX = Math.abs(diffX);
-      const absY = Math.abs(diffY);
-      if (absX > absY && absX > 5) {
-        setDragDirection('horizontal');
-      } else if (absY > absX && absY > 5) {
-        setDragDirection('vertical');
-      }
-    }
-
-    if (dragDirection === 'horizontal') {
-      setCurrentX(diffX);
-      if (diffX > 25) {
-        setSwipeDirection('right');
-      } else if (diffX < -25) {
-        setSwipeDirection('left');
-      } else {
-        setSwipeDirection(null);
-      }
-    } else if (dragDirection === 'vertical') {
-      const maxDrag = window.innerHeight * 0.7;
-      let progress;
-      
-      if (showDetails) {
-        progress = 1 - Math.min(Math.max(diffY / maxDrag, 0), 1);
-      } else {
-        progress = Math.min(Math.max(-diffY / maxDrag, 0), 1);
-      }
-      
-      setDetailsProgress(progress);
+    if (diffX > 25) {
+      setSwipeDirection('right');
+    } else if (diffX < -25) {
+      setSwipeDirection('left');
+    } else {
+      setSwipeDirection(null);
     }
   };
 
@@ -153,7 +102,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
     if (!isDragging) return;
     setIsDragging(false);
 
-    if (dragDirection === 'horizontal' && Math.abs(currentX) > SWIPE_THRESHOLD) {
+    if (Math.abs(currentX) > SWIPE_THRESHOLD) {
       if (audioRef.current) {
         audioRef.current.pause();
         setIsPlaying(false);
@@ -166,40 +115,17 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
       }
       
       onNext();
-    } else if (dragDirection === 'vertical') {
-      if (showDetails) {
-        if (detailsProgress < 0.7) {
-          setShowDetails(false);
-        }
-      } else {
-        if (detailsProgress > 0.3) {
-          setShowDetails(true);
-        }
-      }
-      setDetailsProgress(showDetails ? 1 : 0);
     }
 
     setCurrentX(0);
-    setCurrentY(0);
-    setDragDirection(null);
     setSwipeDirection(null);
   };
 
-  useEffect(() => {
-    setDetailsProgress(showDetails ? 1 : 0);
-  }, [showDetails]);
-
   const cardStyle = {
-    transform: dragDirection === 'horizontal'
+    transform: isDragging
       ? `translate(${currentX}px) rotate(${currentX * ROTATION_FACTOR}deg)`
       : 'none',
     transition: isDragging ? 'none' : 'transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
-  };
-
-  const detailsStyle = {
-    transform: `translateY(${(1 - detailsProgress) * 100}%)`,
-    opacity: detailsProgress,
-    transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   };
 
   const renderMedia = () => {
@@ -287,22 +213,34 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
         </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 p-6 pb-16 text-white">
+      <div className="absolute inset-x-0 bottom-0 p-6 pb-24 text-white">
         <div className="flex items-center justify-between mb-4">
           <div>
             <h2 className="text-3xl font-bold mb-2">{track.title}</h2>
             <p className="text-white/70">par {username}</p>
           </div>
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleLike();
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
-          >
-            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-            <span>{likes}</span>
-          </button>
+          <div className="flex flex-col items-end gap-2">
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleLike();
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            >
+              <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+              <span>{likes}</span>
+            </button>
+            <button 
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-gradient-to-r from-accent-purple to-accent-blue active:scale-95 transition-transform"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDetails(true);
+              }}
+            >
+              <Plus className="w-5 h-5" />
+              <span>Plus d'infos</span>
+            </button>
+          </div>
         </div>
         
         {track.tags?.length > 0 && (
@@ -317,58 +255,58 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
             ))}
           </div>
         )}
+      </div>
 
+      {/* Modal Plus d'infos */}
+      {showDetails && (
         <div 
-          className="absolute bottom-20 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/50"
-          onClick={(e) => {
-            e.stopPropagation();
-            setShowDetails(true);
-          }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50"
+          onClick={() => setShowDetails(false)}
         >
-          <ChevronUp className="w-6 h-6 animate-bounce" />
-          <span className="text-xs">Plus d'infos</span>
-        </div>
-      </div>
+          <div 
+            className="absolute inset-x-0 bottom-0 bg-dark-100 rounded-t-3xl animate-slide-up max-h-[85vh] overflow-y-auto momentum-scroll"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative p-6 pb-safe">
+              <button
+                onClick={() => setShowDetails(false)}
+                className="absolute top-4 right-4 p-2 rounded-full hover:bg-dark-200 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
 
-      <div 
-        ref={detailsRef}
-        className="fixed inset-x-0 bottom-0 bg-dark-100/95 backdrop-blur-sm rounded-t-3xl"
-        style={{ 
-          ...detailsStyle,
-          height: '70vh'
-        }}
-      >
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-12 h-1 bg-white/20 rounded-full my-3" />
+              <h2 className="text-2xl font-bold mb-6">{track.title}</h2>
 
-        <div className="h-full overflow-y-auto px-6 pt-8 pb-24">
-          {track.description && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-white mb-2">Description</h3>
-              <p className="text-gray-300 whitespace-pre-wrap">{track.description}</p>
+              {track.description && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-white mb-2">Description</h3>
+                  <p className="text-gray-300 whitespace-pre-wrap">{track.description}</p>
+                </div>
+              )}
+
+              {Object.entries(track.platforms || {}).length > 0 && (
+                <div className="space-y-3 pb-safe">
+                  <h3 className="text-lg font-semibold text-white">Écouter sur</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    {Object.entries(track.platforms).map(([platform, url], index) => (
+                      <a
+                        key={index}
+                        href={url as string}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-colors ${platformStyles[platform as keyof typeof platformStyles]}`}
+                      >
+                        <ExternalLink className="w-4 h-4" />
+                        <span className="capitalize">{platform}</span>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
-          )}
-
-          {Object.entries(track.platforms || {}).length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-lg font-semibold text-white">Écouter sur</h3>
-              <div className="grid grid-cols-2 gap-3">
-                {Object.entries(track.platforms).map(([platform, url], index) => (
-                  <a
-                    key={index}
-                    href={url as string}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className={`flex items-center gap-2 px-4 py-3 rounded-xl transition-colors ${platformStyles[platform as keyof typeof platformStyles]}`}
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    <span className="capitalize">{platform}</span>
-                  </a>
-                ))}
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
