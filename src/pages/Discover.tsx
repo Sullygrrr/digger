@@ -16,7 +16,7 @@ export const Discover = () => {
   }, []);
 
   return (
-    <div className="relative h-[calc(100vh-4rem)]">
+    <div className="flex-1 relative">
       {loading ? (
         <div className="absolute inset-0 flex justify-center items-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent-purple"></div>
