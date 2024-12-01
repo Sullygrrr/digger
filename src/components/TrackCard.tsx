@@ -3,13 +3,11 @@ import { Track } from '../types/music';
 import { Music, ThumbsUp, ThumbsDown, ExternalLink, ChevronUp, Heart } from 'lucide-react';
 import { useUsername } from '../hooks/useUsername';
 import { useLikes } from '../hooks/useLikes';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../config/firebase';
 
-const SWIPE_THRESHOLD = 80; // Seuil de distance pour déclencher un swipe
-const SWIPE_VELOCITY_THRESHOLD = 0.5; // Seuil de vitesse pour déclencher un swipe
-const ROTATION_FACTOR = 0.08; // Facteur de rotation pour l'effet de carte
-const SPRING_CONFIG = 'cubic-bezier(0.34, 1.56, 0.64, 1)'; // Configuration de l'animation spring
+const SWIPE_THRESHOLD = 80;
+const SWIPE_VELOCITY_THRESHOLD = 0.5;
+const ROTATION_FACTOR = 0.08;
+const SPRING_CONFIG = 'cubic-bezier(0.34, 1.56, 0.64, 1)';
 
 const platformStyles = {
   spotify: "bg-[#1DB954] hover:bg-[#1ed760] text-white",
@@ -29,92 +27,31 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
   const [startY, setStartY] = useState(0);
   const [currentX, setCurrentX] = useState(0);
   const [currentY, setCurrentY] = useState(0);
-  const [startTime, setStartTime] = useState(0);
-  const [velocity, setVelocity] = useState(0);
   const [showDetails, setShowDetails] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [dragDirection, setDragDirection] = useState<'horizontal' | 'vertical' | null>(null);
   const [isPlaying, setIsPlaying] = useState(!isFirstCard);
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [detailsProgress, setDetailsProgress] = useState(0);
-  const [isExiting, setIsExiting] = useState(false);
-  const [currentLikes, setCurrentLikes] = useState(track.likes);
+  const [velocity, setVelocity] = useState(0);
   const [lastX, setLastX] = useState(0);
   const [lastTime, setLastTime] = useState(0);
-  
   const audioRef = useRef<HTMLAudioElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const detailsRef = useRef<HTMLDivElement>(null);
-  const animationFrameRef = useRef<number>();
   const username = useUsername(track.userId);
-  const { likes, isLiked, toggleLike } = useLikes(track.id, currentLikes, track.likedBy);
-
-  useEffect(() => {
-    const fetchCurrentLikes = async () => {
-      try {
-        const trackDoc = await getDoc(doc(db, 'tracks', track.id));
-        if (trackDoc.exists()) {
-          setCurrentLikes(trackDoc.data().likes);
-        }
-      } catch (error) {
-        console.error('Erreur lors de la récupération des likes:', error);
-      }
-    };
-
-    fetchCurrentLikes();
-  }, [track.id]);
-
-  useEffect(() => {
-    if (!isFirstCard && audioRef.current) {
-      audioRef.current.play();
-    }
-  }, [isFirstCard]);
-
-  useEffect(() => {
-    const handleAudioEnd = () => {
-      if (audioRef.current) {
-        audioRef.current.currentTime = 0;
-        audioRef.current.play();
-      }
-    };
-
-    if (audioRef.current) {
-      audioRef.current.addEventListener('ended', handleAudioEnd);
-    }
-
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.removeEventListener('ended', handleAudioEnd);
-      }
-    };
-  }, []);
-
-  const updateVelocity = (currentX: number, currentTime: number) => {
-    const deltaX = currentX - lastX;
-    const deltaTime = currentTime - lastTime;
-    if (deltaTime > 0) {
-      setVelocity(deltaX / deltaTime);
-    }
-    setLastX(currentX);
-    setLastTime(currentTime);
-  };
+  const { likes, isLiked, toggleLike } = useLikes(track.id, track.likes, track.likedBy);
 
   const handleTouchStart = (e: React.TouchEvent | React.MouseEvent) => {
     const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     setStartX(clientX);
     setStartY(clientY);
-    setStartTime(Date.now());
     setLastX(clientX);
     setLastTime(Date.now());
     setIsDragging(true);
     setDragDirection(null);
     setSwipeDirection(null);
-    setVelocity(0);
-
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-    }
   };
 
   const handleTouchMove = (e: React.TouchEvent | React.MouseEvent) => {
@@ -124,9 +61,16 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const diffX = clientX - startX;
     const diffY = clientY - startY;
-    const currentTime = Date.now();
 
-    updateVelocity(clientX, currentTime);
+    // Calculer la vélocité
+    const now = Date.now();
+    const dt = now - lastTime;
+    if (dt > 0) {
+      const dx = clientX - lastX;
+      setVelocity(dx / dt);
+    }
+    setLastX(clientX);
+    setLastTime(now);
 
     if (!dragDirection) {
       const absX = Math.abs(diffX);
@@ -149,14 +93,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
       }
     } else if (dragDirection === 'vertical') {
       const maxDrag = window.innerHeight * 0.7;
-      let progress;
-      
-      if (showDetails) {
-        progress = 1 - Math.min(Math.max(diffY / maxDrag, 0), 1);
-      } else {
-        progress = Math.min(Math.max(-diffY / maxDrag, 0), 1);
-      }
-      
+      let progress = showDetails ? 1 - Math.min(Math.max(diffY / maxDrag, 0), 1) : Math.min(Math.max(-diffY / maxDrag, 0), 1);
       setDetailsProgress(progress);
     }
   };
@@ -165,74 +102,114 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
     if (!isDragging) return;
     setIsDragging(false);
 
-    const endTime = Date.now();
-    const swipeTime = endTime - startTime;
-    const finalVelocity = Math.abs(velocity);
+    const absVelocity = Math.abs(velocity);
+    const shouldSwipe = Math.abs(currentX) > SWIPE_THRESHOLD || absVelocity > SWIPE_VELOCITY_THRESHOLD;
 
-    if (dragDirection === 'horizontal' && 
-        (Math.abs(currentX) > SWIPE_THRESHOLD || finalVelocity > SWIPE_VELOCITY_THRESHOLD)) {
-      setIsExiting(true);
+    if (dragDirection === 'horizontal' && shouldSwipe) {
+      const direction = currentX > 0 ? 'right' : 'left';
+      const finalX = direction === 'right' ? window.innerWidth : -window.innerWidth;
       
       if (audioRef.current) {
         audioRef.current.pause();
         setIsPlaying(false);
       }
       
-      if (swipeDirection === 'right' && !isLiked) {
+      if (direction === 'right' && !isLiked) {
         await toggleLike();
-      } else if (swipeDirection === 'left' && isLiked) {
+      } else if (direction === 'left' && isLiked) {
         await toggleLike();
       }
-
-      const exitDistance = window.innerWidth * (currentX > 0 ? 1.5 : -1.5);
-      const exitDuration = Math.min(400, Math.max(250, swipeTime * 0.5));
       
-      setCurrentX(exitDistance);
-      setTimeout(() => {
-        onNext();
-      }, exitDuration);
+      setCurrentX(finalX);
+      setTimeout(onNext, 300);
     } else {
-      // Animation de retour avec effet de ressort
-      const springAnimation = () => {
-        const progress = Math.min(1, (Date.now() - endTime) / 300);
-        const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress);
-        
-        setCurrentX(currentX * (1 - easeProgress));
-        
-        if (progress < 1) {
-          animationFrameRef.current = requestAnimationFrame(springAnimation);
-        }
-      };
-      
-      animationFrameRef.current = requestAnimationFrame(springAnimation);
+      setCurrentX(0);
     }
 
+    if (dragDirection === 'vertical') {
+      if (showDetails) {
+        if (detailsProgress < 0.7) {
+          setShowDetails(false);
+        }
+      } else {
+        if (detailsProgress > 0.3) {
+          setShowDetails(true);
+        }
+      }
+      setDetailsProgress(showDetails ? 1 : 0);
+    }
+
+    setCurrentY(0);
     setDragDirection(null);
     setSwipeDirection(null);
+    setVelocity(0);
+  };
+
+  const togglePlay = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        if (videoRef.current) {
+          videoRef.current.pause();
+        }
+      } else {
+        audioRef.current.play();
+        if (videoRef.current) {
+          videoRef.current.play();
+        }
+      }
+      setIsPlaying(!isPlaying);
+    }
   };
 
   useEffect(() => {
+    const handleAudioEnd = () => {
+      if (audioRef.current) {
+        audioRef.current.currentTime = 0;
+        audioRef.current.play();
+      }
+    };
+
+    if (audioRef.current) {
+      audioRef.current.addEventListener('ended', handleAudioEnd);
+    }
+
     return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
+      if (audioRef.current) {
+        audioRef.current.removeEventListener('ended', handleAudioEnd);
       }
     };
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showDetails && detailsRef.current && !detailsRef.current.contains(event.target as Node)) {
+        setShowDetails(false);
+      }
+    };
+
+    if (showDetails) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDetails]);
+
   const cardStyle = {
     transform: dragDirection === 'horizontal'
-      ? `translate3d(${currentX}px, 0, 0) rotate(${currentX * ROTATION_FACTOR}deg)`
-      : 'translate3d(0, 0, 0)',
+      ? `translate(${currentX}px) rotate(${currentX * ROTATION_FACTOR}deg)`
+      : 'none',
     transition: isDragging ? 'none' : `all 0.3s ${SPRING_CONFIG}`,
-    opacity: isExiting ? 0 : 1,
-    willChange: 'transform'
+    opacity: isDragging ? 1 : Math.max(0, 1 - Math.abs(currentX) / window.innerWidth),
   };
 
   const detailsStyle = {
-    transform: `translate3d(0, ${(1 - detailsProgress) * 100}%, 0)`,
+    transform: `translateY(${(1 - detailsProgress) * 100}%)`,
     opacity: detailsProgress,
-    transition: isDragging ? 'none' : `all 0.3s ${SPRING_CONFIG}`,
-    willChange: 'transform, opacity'
+    transition: isDragging ? 'none' : 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   };
 
   const renderMedia = () => {
@@ -268,7 +245,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
 
   return (
     <div 
-      className="absolute inset-4 bg-dark-100 rounded-2xl shadow-xl overflow-hidden touch-none select-none"
+      className="absolute inset-2 bg-dark-100 rounded-2xl shadow-xl overflow-hidden touch-none select-none"
       style={cardStyle}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
@@ -283,7 +260,10 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
         src={track.audioUrl}
       />
 
-      <div className="absolute inset-0">
+      <div 
+        className="absolute inset-0 cursor-pointer"
+        onClick={togglePlay}
+      >
         {renderMedia()}
         
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent" />
@@ -318,29 +298,29 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-2xl font-bold">{track.title}</h2>
-            <p className="text-white/70 text-sm">par {username}</p>
+            <h2 className="text-3xl font-bold mb-2">{track.title}</h2>
+            <p className="text-white/70">par {username}</p>
           </div>
           <button 
             onClick={(e) => {
               e.stopPropagation();
               toggleLike();
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           >
-            <Heart className={`w-4 h-4 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
-            <span className="text-sm">{likes}</span>
+            <Heart className={`w-5 h-5 ${isLiked ? 'fill-red-500 text-red-500' : 'text-white'}`} />
+            <span>{likes}</span>
           </button>
         </div>
         
         {track.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-6">
             {track.tags.map((tag, index) => (
               <span
                 key={index}
-                className="bg-white/10 backdrop-blur-sm text-xs px-3 py-1 rounded-full"
+                className="bg-white/10 backdrop-blur-sm px-3 py-1.5 rounded-full text-sm"
               >
                 {tag}
               </span>
@@ -349,7 +329,7 @@ export const TrackCard: React.FC<TrackCardProps> = ({ track, onNext, isFirstCard
         )}
 
         <div 
-          className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/50"
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/50"
           onClick={(e) => {
             e.stopPropagation();
             setShowDetails(true);
