@@ -11,7 +11,7 @@ export const MainLayout = () => {
 
   return (
     <div className="fixed inset-0 bg-dark text-white flex flex-col">
-      <div className="flex-1 relative">
+      <div className="flex-1 relative overflow-hidden">
         <Routes>
           <Route path="/" element={<Discover />} />
           <Route path="/profile" element={<Profile />} />
