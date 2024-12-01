@@ -59,16 +59,17 @@ export const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
     };
   }, [isPlaying, startTime]);
 
-  const handleDragStart = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleDragStart = (e: React.TouchEvent | React.MouseEvent) => {
     setIsDragging(true);
     handleDrag(e);
   };
 
-  const handleDrag = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleDrag = (e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging || !progressRef.current) return;
     
     const rect = progressRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const x = clientX - rect.left;
     const percentage = x / rect.width;
     const newTime = percentage * duration;
     
@@ -86,24 +87,24 @@ export const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
   };
 
   useEffect(() => {
-    const handleMouseUp = () => {
+    const handleTouchEnd = () => {
       if (isDragging) {
         handleDragEnd();
       }
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handleTouchMove = (e: TouchEvent) => {
       if (isDragging && progressRef.current) {
-        handleDrag(e as unknown as React.MouseEvent<HTMLDivElement>);
+        handleDrag(e as unknown as React.TouchEvent);
       }
     };
 
-    document.addEventListener('mouseup', handleMouseUp);
-    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
 
     return () => {
-      document.removeEventListener('mouseup', handleMouseUp);
-      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchmove', handleTouchMove);
     };
   }, [isDragging]);
 
@@ -132,7 +133,8 @@ export const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
         <div className="space-y-4">
           <div
             ref={progressRef}
-            className="relative h-12 bg-dark-200 rounded-lg cursor-grab active:cursor-grabbing"
+            className="relative h-12 bg-dark-200 rounded-lg touch-none"
+            onTouchStart={handleDragStart}
             onMouseDown={handleDragStart}
           >
             {/* Barre de progression totale */}
@@ -170,7 +172,7 @@ export const AudioTrimmer: React.FC<AudioTrimmerProps> = ({
 
           <button
             onClick={onConfirm}
-            className="w-full py-2 px-4 bg-gradient-to-r from-accent-purple to-accent-blue rounded-xl text-white hover:opacity-90 transition-opacity"
+            className="w-full py-3 px-4 bg-gradient-to-r from-accent-purple to-accent-blue rounded-xl text-white hover:opacity-90 transition-opacity"
           >
             Confirmer la sélection
           </button>
