@@ -9,16 +9,15 @@ export const MainLayout = () => {
   const navigate = useNavigate();
 
   return (
-    <div className="min-h-screen bg-dark text-white pb-12">
-      <div className="max-w-2xl mx-auto px-4">
+    <div className="fixed inset-0 bg-dark text-white flex flex-col">
+      <div className="flex-1 flex flex-col max-w-3xl mx-auto w-full overflow-hidden">
         <Routes>
           <Route path="/" element={<Discover />} />
           <Route path="/profile" element={<Profile />} />
         </Routes>
       </div>
 
-      {/* Navigation bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-dark-100/55 backdrop-blur-lg border-t border-gray-800/30">
+      <nav className="bg-dark-100/55 backdrop-blur-lg border-t border-gray-800/30">
         <div className="max-w-md mx-auto">
           <div className="flex justify-center gap-16 py-1.5">
             <button
