@@ -27,7 +27,7 @@ export const Profile = () => {
   };
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="h-full overflow-y-auto pb-24">
       <div className="py-8 px-4">
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
