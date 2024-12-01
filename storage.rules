@@ -1,0 +1,21 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    match /{folder}/{userId}/{fileName} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.auth.uid == userId && (
+        (folder == 'tracks' && (
+          request.resource.contentType.matches('audio/.*') ||
+          request.resource.contentType.matches('audio/mpeg')
+        )) ||
+        (folder == 'images' && request.resource.contentType.matches('image/.*')) ||
+        (folder == 'videos' && request.resource.contentType.matches('video/.*'))
+      );
+      allow delete: if isAuth() && request.auth.uid == userId;
+    }
+  }
+}

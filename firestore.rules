@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Fonction pour vérifier si l'utilisateur est authentifié
+    function isAuth() {
+      return request.auth != null;
+    }
+    
+    // Fonction pour vérifier si l'utilisateur est propriétaire
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    // Règles pour la collection users
+    match /users/{userId} {
+      allow read: if isAuth();
+      allow write: if isOwner(userId);
+      
+      // Sous-collection likedTracks
+      match /likedTracks/{trackId} {
+        allow read: if isAuth();
+        allow write: if isOwner(userId);
+      }
+      
+      // Autoriser la mise à jour des tagStats
+      allow update: if isOwner(userId) && 
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['tagStats']);
+    }
+
+    // Règles pour la collection usernames
+    match /usernames/{username} {
+      allow read: if isAuth();
+      allow create: if isAuth();
+      allow delete: if isAuth() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username == username;
+    }
+
+    // Règles pour la collection tracks
+    match /tracks/{trackId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && request.resource.data.userId == request.auth.uid;
+      allow delete: if isAuth() && resource.data.userId == request.auth.uid;
+      allow update: if isAuth() && (
+        // Permettre la mise à jour des likes uniquement
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes', 'likedBy']) ||
+        // Ou permettre toutes les modifications si l'utilisateur est propriétaire
+        resource.data.userId == request.auth.uid
+      );
+    }
+
+    // Règles pour la collection tags
+    match /tags/{tagId} {
+      allow read: if isAuth();
+      allow write: if isAuth();
+    }
+  }
+}
